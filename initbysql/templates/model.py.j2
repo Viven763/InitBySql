@@ -1,0 +1,8 @@
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional, List
+
+class {{ table.name|capitalize }}(BaseModel):
+    {% for field in table.fields -%}
+    {{ field.name }}: {% if field.nullable %}Optional[{{ field.type|sql_type_to_py }}]{% else %}{{ field.type|sql_type_to_py }}{% endif %}{% if field.default %} = {{ field.default }}{% endif %}
+    {% endfor %}

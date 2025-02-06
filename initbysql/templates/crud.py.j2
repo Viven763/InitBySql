@@ -1,0 +1,64 @@
+import asyncpg
+from .models import {{ table.name|capitalize }}
+from .schemas import Insert{{ table.name|capitalize }}, Update{{ table.name|capitalize }}
+from typing import List, Optional
+
+async def create_{{ table.name }}({{ table.name }}: Insert{{ table.name|capitalize }}, user_id: int) -> {{ table.name|capitalize }}:
+    conn = await asyncpg.connect()
+    try:
+        query = """
+            INSERT INTO {{ table.name }} ({% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] %}{{ field.name }}, {% endfor %}created_by)
+            VALUES ({% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] %}${{ loop.index }}{% if not loop.last %}, {% endif %}{% endfor %})
+            RETURNING *
+        """
+        data = await conn.fetchrow(query, {% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] %}{{ table.name }}.{{ field.name }}, {% endfor %}user_id)
+        return {{ table.name|capitalize }}(**data)
+    finally:
+        await conn.close()
+
+async def get_{{ table.name }}({{ table.name }}_id: int) -> {{ table.name|capitalize }}:
+    conn = await asyncpg.connect()
+    try:
+        data = await conn.fetchrow("SELECT * FROM {{ table.name }} WHERE id = $1", {{ table.name }}_id)
+        return {{ table.name|capitalize }}(**data)
+    finally:
+        await conn.close()
+
+async def update_{{ table.name }}({{ table.name }}_id: int, {{ table.name }}: Update{{ table.name|capitalize }}, user_id: int) -> {{ table.name|capitalize }}:
+    conn = await asyncpg.connect()
+    try:
+        updates = []
+        params = []
+        index = 1
+        {% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] %}
+        if {{ table.name }}.{{ field.name }} is not None:
+            updates.append("{{ field.name }} = $%d" % index)
+            params.append({{ table.name }}.{{ field.name }})
+            index += 1
+        {% endfor %}
+        query = f"""
+            UPDATE {{ table.name }}
+            SET {', '.join(updates)}, updated_at = NOW()
+            WHERE id = ${ index } AND created_by = ${ index + 1 }
+            RETURNING *
+        """
+        params.extend([{{ table.name }}_id, user_id])
+        data = await conn.fetchrow(query, *params)
+        return {{ table.name|capitalize }}(**data)
+    finally:
+        await conn.close()
+
+async def delete_{{ table.name }}({{ table.name }}_id: int, user_id: int):
+    conn = await asyncpg.connect()
+    try:
+        await conn.execute("DELETE FROM {{ table.name }} WHERE id = $1 AND created_by = $2", {{ table.name }}_id, user_id)
+    finally:
+        await conn.close()
+
+async def get_all_{{ table.name }}() -> List[{{ table.name|capitalize }}]:
+    conn = await asyncpg.connect()
+    try:
+        data = await conn.fetch("SELECT * FROM {{ table.name }}")
+        return [{{ table.name|capitalize }}(**item) for item in data]
+    finally:
+        await conn.close()

@@ -1,0 +1,12 @@
+from pydantic import BaseModel
+from typing import Optional
+
+class Insert{{ table.name|capitalize }}(BaseModel):
+    {% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] -%}
+    {{ field.name }}: {% if field.nullable %}Optional[{{ field.type|sql_type_to_py }}]{% else %}{{ field.type|sql_type_to_py }}{% endif %}{% if field.default %} = {{ field.default }}{% endif %}
+    {% endfor %}
+
+class Update{{ table.name|capitalize }}(BaseModel):
+    {% for field in table.fields if not field.is_primary and field.name not in ['created_at', 'updated_at'] -%}
+    {{ field.name }}: Optional[{{ field.type|sql_type_to_py }}] = None
+    {% endfor %}

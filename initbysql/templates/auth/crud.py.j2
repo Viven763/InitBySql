@@ -1,0 +1,34 @@
+import asyncpg
+from .models import User
+from .schemas import UserCreate
+from .hashutils import get_password_hash, verify_password
+
+async def get_user_by_username(username: str) -> Optional[User]:
+    conn = await asyncpg.connect()
+    try:
+        data = await conn.fetchrow("SELECT * FROM users WHERE username = $1", username)
+        return User(**data) if data else None
+    finally:
+        await conn.close()
+
+async def create_user(user: UserCreate) -> User:
+    conn = await asyncpg.connect()
+    try:
+        hashed_password = get_password_hash(user.password)
+        query = """
+            INSERT INTO users (username, password, email, is_admin)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+        """
+        data = await conn.fetchrow(query, user.username, hashed_password, user.email, user.is_admin)
+        return User(**data)
+    finally:
+        await conn.close()
+
+async def authenticate_user(username: str, password: str) -> Optional[User]:
+    user = await get_user_by_username(username)
+    if not user:
+        return None
+    if not verify_password(password, user.password):
+        return None
+    return user

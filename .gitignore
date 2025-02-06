@@ -1,0 +1,4 @@
+build/
+.idea/
+initbysql.egg-info/
+init.sql

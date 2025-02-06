@@ -1,0 +1,19 @@
+from fastapi import APIRouter, Depends, HTTPException
+from . import models, schemas, crud
+from auth.utils import get_current_user
+
+router = APIRouter(
+    prefix="/{{ table.name }}",
+    tags=["{{ table.name|capitalize }}"]
+)
+
+@router.post("/", response_model=models.{{ table.name|capitalize }})
+async def create_{{ table.name }}(
+    {{ table.name }}: schemas.Insert{{ table.name|capitalize }},
+    user = Depends(get_current_user)
+):
+    return await crud.create_{{ table.name }}({{ table.name }}, user.id)
+
+@router.get("/", response_model=list[models.{{ table.name|capitalize }}])
+async def read_all_{{ table.name }}():
+    return await crud.get_all_{{ table.name }}()
